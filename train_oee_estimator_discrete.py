@@ -1,26 +1,22 @@
-from deep_rl import *
-import argparse
-from BetaNet import BetaNetwork
-import sys
-import importlib
 import sys
 import os
 import pickle 
-print (os.getcwd())
+import importlib
+import argparse
+import utils.import_envs
+from deep_rl import *
+from BetaNet import BetaNetwork
 import numpy as np
 import torch as th
 import yaml
+
 from huggingface_sb3 import EnvironmentName
 from stable_baselines3.common.utils import set_random_seed
-import roboschool 
 from rl_baselines3_zoo import sunblaze_envs
-
-import utils.import_envs  # noqa: F401 pylint: disable=unused-import
 from utils import ALGOS, create_test_env, get_saved_hyperparams
 from utils.exp_manager import ExperimentManager
 from utils.load_from_hub import download_from_hub
 from utils.utils import StoreDict, get_model_path
-
 from environments.cartpole import CartPoleEnv
 
 parser = argparse.ArgumentParser()
@@ -32,14 +28,16 @@ parser.add_argument("--learning_rate", default=1e-4, type=float,
                     help="Learning Rate of the model")
 parser.add_argument("--l2_regularization", default=0.01, type=float,
                     help="L2 regularization in the model")
+parser.add_argument("--file_p", default="./rl-baselines3-zoo/transitions_200_3_100000.pkl", type=str, help="file location for transitions stored in p")
+parser.add_argument("--file_q", default="./rl-baselines3-zoo/transitions_100_2_100000.pkl", type=str, help="file location for transitions stored in q")
 parser.add_argument("--params_p", default=15.0, type=float, help="environment parameters for p environment")
 parser.add_argument("--params_q", default=10.0, type=float, help="environment parameters for q-environment")
 
-parser.add_argument("--env", default="RoboschoolHalfCheetah-v1", type=EnvironmentName, help="RL Environment over which the experiment is being run")
-parser.add_argument("--log", default='./log_halfcheetah', type=str, help="log directory where the experiment details plus the model will be stored")
+parser.add_argument("--env", default="Acrobot-v1", type=EnvironmentName, help="RL Environment over which the experiment is being run")
+parser.add_argument("--log", default='./log_acrobot', type=str, help="log directory where the experiment details plus the model will be stored")
 parser.add_argument("--use_cuda", type=bool, default=True)
 parser.add_argument("--exp-id", help="Experiment ID (default: 0: latest, -1: no exp folder)", default=0, type=int)
-parser.add_argument("--folder", help="Log folder", type=str, default="./rl_baselines3_zoo/logs")
+parser.add_argument("--folder", help="Log folder", type=str, default="./rl_baselines3_zoo/rl-trained-agents")
 parser.add_argument("--trained_agent_algo", help="Trained Agent Algo", type=str, default="ppo")
 parser.add_argument("--device", help="PyTorch device to be use (ex: cpu, cuda...)", default="cuda", type=str)
 parser.add_argument("--seed", help="Random generator seed", type=int, default=0)
@@ -84,6 +82,8 @@ parser.add_argument("--real_policy", type=float, default=0.6)
 parser.add_argument("--timesteps", type=int, default=150)
 parser.add_argument("--index", type=int, default=0)
 parser.add_argument("--algo_type", type=str, default='GradientDICE')
+parser.add_argument("--with_beta", type=bool, default=False)
+
 args = parser.parse_args()
 
 def off_policy_evaluation(**kwargs):
@@ -104,10 +104,7 @@ def off_policy_evaluation(**kwargs):
 
     if config.correction in ['GradientDICE', 'DualDICE']:
         config.activation = 'linear'
-        if config.with_beta:
-            config.lam = .1
-        else:
-            config.lam = .1
+        config.lam = 0.1
     elif config.correction in ['GenDICE']:
         config.activation = 'squared'
         config.lam = 1
@@ -116,8 +113,8 @@ def off_policy_evaluation(**kwargs):
 
     config.task_fn = lambda: Task(config.game)
     config.eval_env = config.task_fn()
-    config.max_steps = int(1000)
-    config.eval_interval = config.max_steps // 1000
+    config.max_steps = int(2500)
+    config.eval_interval = config.max_steps // 2500
     print ("state and action dim:", config.state_dim, config.action_dim)
 
     config.network_fn = lambda: TD3Net(
@@ -132,8 +129,8 @@ def off_policy_evaluation(**kwargs):
     config.replay_fn = lambda: Replay(memory_size=int(1e6), batch_size=batch_size)
 
     config.dice_net_fn = lambda: GradientDICEContinuousNet(
-        body_tau_fn=lambda: FCBody(config.state_dim + 6, gate=F.relu),
-        body_f_fn=lambda: FCBody(config.state_dim + 6, gate=F.relu),
+        body_tau_fn=lambda: FCBody(config.state_dim + 1, gate=F.relu),
+        body_f_fn=lambda: FCBody(config.state_dim + 1, gate=F.relu),
         opt_fn=lambda params: torch.optim.SGD(params, lr=config.lr),
         activation=config.activation
     )
@@ -142,13 +139,12 @@ def off_policy_evaluation(**kwargs):
     config.sample_init_states = lambda: sample_init_env.reset()
 
     if config.collect_data:
-        agent = OffPolicyEvaluationContinuous(config)
+        agent = OffPolicyEvaluationDiscrete(config)
         agent.collect_data()
         run_steps(agent)
-        filename = './log_dr_halfcheetah' +'/' + args.algo_type + '_' + file_appender + '_' + str(config.index) + '.ptr'
-        print (filename)
+        filename = args.log +'/dice_estimator_' + args.algo_type + '_' + file_appender + '_' + str(config.index) + '.ptr'
         torch.save(agent.DICENet.state_dict(), filename)
-        with open('./log_dr_halfcheetah' + '/' + args.algo_type + '_' + file_appender + '_' + str(config.index) + '.pkl', 'wb') as f:
+        with open(args.log +'/dice_estimator_' + args.algo_type + '_' + file_appender + '_' + str(config.index) + '.pkl', 'wb') as f:
             pickle.dump(agent.loss_history, f)
     else:
         run_steps(OffPolicyEvaluation(config))
@@ -156,7 +152,7 @@ def off_policy_evaluation(**kwargs):
 
 if __name__ == '__main__':
     file_appender = str(int(10*args.params_p)) + '_' + str(int(10*args.params_q)) + str(int(10*args.real_policy)) + '_' + str(int(10*args.sim_policy)) + '_' + str(args.timesteps)
-    beta_network = BetaNetwork(state_dim=32, action_bound=200, learning_rate=args.learning_rate, tau=args.l2_regularization, seed=1234, action_dim = 1)
+    beta_network = BetaNetwork(state_dim=13, action_bound=500, learning_rate=args.learning_rate, tau=args.l2_regularization, seed=1234, action_dim = 1)
     beta_network.load_state_dict(th.load(args.log + '/beta_model_' + file_appender + '_4' + '.ptr')) # example code
     
     for params in beta_network.parameters():
@@ -242,6 +238,7 @@ if __name__ == '__main__':
         env_kwargs.update(args.env_kwargs)
 
     log_dir = args.reward_log if args.reward_log != "" else None
+    print (env_kwargs)
     env_q = create_test_env(
         env_name.gym_id,
         n_envs=args.n_envs,
@@ -250,7 +247,7 @@ if __name__ == '__main__':
         log_dir=log_dir,
         should_render=not args.no_render,
         hyperparams=hyperparams,
-        env_kwargs={'env_id': 0},
+        env_kwargs={'env_id':0},
     )
     env_p = create_test_env(
         env_name.gym_id,
@@ -260,9 +257,9 @@ if __name__ == '__main__':
         log_dir=log_dir,
         should_render=not args.no_render,
         hyperparams=hyperparams,
-        env_kwargs={'env_id': 1},
+        env_kwargs={'env_id':1},
     )
-
+    
 
     kwargs = dict(seed=args.seed)
     if algo in off_policy_algos:
@@ -300,41 +297,42 @@ if __name__ == '__main__':
             tag = 'cartpole_dice_integration_with_oee',
             collect_data=True,
             game=game,
-            correction='GradientDICE',
-            algorithm=args.algo_type,
-            discount=0.99,
-            lr=8e-4,
-            lam=1,
-            target_network_update_freq=1,
-            expert_policy=model,
-            beta_factor=beta_network, 
-            environment_p=env_p, 
-            environment_q=env_q,
-            noise_std=args.sim_policy,
-            data_collection_noise=args.real_policy, 
-            deterministic=deterministic,
-            file_appender = str(args.params_p) + '_' + str(args.params_q) + str(int(10*args.real_policy)) + '_' + str(int(10*args.sim_policy)) + '_' + str(args.timesteps), 
-            index=args.index, 
-            with_beta=True)
-    else:
-        off_policy_evaluation(
-            tag = 'cartpole_dice_integration_with_oee',
-            collect_data=True,
-            game=game,
             correction=args.algo_type,
-            algorithm=args.algo_type,
+            algo_type=args.algo_type,
             discount=0.99,
-            lr=1e-3,
+            # discount=1,
+            lr=1e-2,
             lam=1,
             target_network_update_freq=1,
             expert_policy=model,
             beta_factor=beta_network, 
-            environment_p=env_p, 
-            environment_q=env_p,
+            environment_p=env_p,#sunblaze_envs.make('SunblazeLightAcrobot-v0'),#CartPoleEnv(gravity=15.0),SunblazeLightAcrobot
+            environment_q=env_p,#sunblaze_envs.make('SunblazeAcrobot-v0'),#CartPoleEnv(gravity=10.0), 
             noise_std=args.sim_policy,
             data_collection_noise=args.real_policy, 
             deterministic=deterministic,
             file_appender = str(args.params_p) + '_' + str(args.params_q) + str(int(10*args.real_policy)) + '_' + str(int(10*args.sim_policy)) + '_' + str(args.timesteps), 
             index=args.index, 
             with_beta=False)
+    else:
+        off_policy_evaluation(
+            tag = 'cartpole_dice_integration_with_oee',
+            collect_data=True,
+            game=game,
+            correction=args.algo_type,
+            algo_type=args.algo_type,
+            discount=0.99,
+            lr=1e-2,
+            lam=1,
+            target_network_update_freq=1,
+            expert_policy=model,
+            beta_factor=beta_network, 
+            environment_p=env_p,
+            environment_q=env_q,
+            noise_std=args.sim_policy,
+            data_collection_noise=args.sim_policy, 
+            deterministic=deterministic,
+            file_appender = str(args.params_p) + '_' + str(args.params_q) + str(int(10*args.real_policy)) + '_' + str(int(10*args.sim_policy)) + '_' + str(args.timesteps), 
+            index=args.index, 
+            with_beta=True)
         
