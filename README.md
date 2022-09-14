@@ -4,6 +4,7 @@
 We investigate how to leverage a good but imperfect model/simulator for off-policy evaluation (OPE) in the framework of marginalized importance sampling (MIS). Existing MIS methods learn a density ratio between the occupancies of the target and the behavior policies, and face two difficulties *simultaneously*:
 1. *large ratios*: the density ratio can largely deviate from 1, and 
 2. *indirect supervision*:  no sample from the target policies' occupancy is *directly* available, and the ratio needs to be inferred *indirectly* via the Bellman flow equation. 
+
 In this paper, we propose a new MIS method that address the above challenges. By introducing the target policy's occupancy in the simulator as an intermediate variable, our method splits the ratio into the product of two terms and learns them separately, where the first term enjoys *direct supervision* and the second term has *small magnitude* (i.e., close to 1), and none of the terms are subject to both difficulties simultaneously. A sample complexity analysis is provided and offers insights about error propagation in the two-step estimation procedure, and we provide additional results and empirical evaluation of our method on Sim2Sim examples like Cartpole and Roboschool environments. We also demonstrate practical applications of our model on Sim2Real validation on KinovaGen3
 
 # Installation Instructions
