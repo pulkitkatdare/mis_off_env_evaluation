@@ -86,20 +86,17 @@ def make_vec_env(
                     #print (env_kwargs)
                     env = CartPoleEnv(gravity=env_kwargs['gravity'])
                 elif env_id == 'RoboschoolHalfCheetah-v1':
-                    if env_kwargs['gravity'] == 15.0:
-                        env = sunblaze_envs.make('SunblazeWeakHalfCheetah-v0')
-                    elif env_kwargs['gravity'] == 20.0:    
+                    if env_kwargs['env_id'] == 1:
                         env = sunblaze_envs.make('SunblazeStrongHalfCheetah-v0')
-                    else:
-                        env = sunblaze_envs.make('SunblazeHalfCheetah-v0')#TimeLimitWrapper(ModifiableRoboschoolHalfCheetah(), max_episode_steps=1000)
+                    elif env_kwargs['env_id'] == 0:    
+                        env = sunblaze_envs.make('SunblazeHalfCheetah-v0')
+                        
                         print (env.power)
-                elif env_id == 'Acrobot-v1':
-                    if env_kwargs['gravity'] == 15.0:
-                        env = sunblaze_envs.make('SunblazeLightAcrobot-v0')
-                    elif env_kwargs['gravity'] == 20.0:    
-                        env = sunblaze_envs.make('SunblazeHeavyAcrobot-v0')
-                    else:
-                        env = sunblaze_envs.make('SunblazeAcrobot-v0')#TimeLimitWrapper(ModifiableRoboschoolHalfCheetah(), max_episode_steps=1000)
+                elif env_id == 'CartPole-v1':
+                    if env_kwargs['env_id'] == 0:
+                        env = CartPoleEnv(gravity=15.0)
+                    elif env_kwargs['env_id'] == 1:    
+                        env = CartPoleEnv(gravity=10.0)
                         #print (env.power)
                         
                 else:
