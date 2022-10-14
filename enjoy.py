@@ -270,8 +270,8 @@ def main():  # noqa: C901
                     if infos[0].get("is_success") is not None:
                         successes.append(infos[0].get("is_success", False))
                         episode_reward, ep_len = 0.0, 0
-        #with open(args.save_file + '_' + str(int(10*args.policy_noise)) + '_' + str(int(10*args.env_kwargs['gravity'])) + '_' + str(args.timesteps) + '.pkl', 'wb') as fp:
-        #    pickle.dump(data, fp,  protocol=pickle.HIGHEST_PROTOCOL)
+        with open(args.save_file + '_' + str(int(10*args.policy_noise)) + '_' + str(int(10*args.env_kwargs['gravity'])) + '_' + str(args.timesteps) + '.pkl', 'wb') as fp:
+            pickle.dump(data, fp,  protocol=pickle.HIGHEST_PROTOCOL)
     except KeyboardInterrupt:
         pass
 
