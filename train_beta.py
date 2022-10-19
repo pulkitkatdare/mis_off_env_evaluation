@@ -5,7 +5,6 @@ import argparse
 import numpy as np 
 import pickle 
 from torch.utils.data import DataLoader
-from environments.cartpole import CartPoleEnv
 from tqdm import tqdm
 from oee_dataset import BetaEstimationDataset
 import torch
@@ -17,18 +16,16 @@ def main(args):
 
     if args.env == 'RoboschoolHalfCheetah-v1':
         dataset = BetaEstimationDataset(filename_p=args.file_p, filename_q=args.file_q, action_space=6)
-    dataloader = DataLoader(dataset, batch_size=args.batch_size)
-    file_appender = str(args.params_p) + '_' + str(args.params_q) + str(int(10*args.real_policy)) + '_' + str(int(10*args.sim_policy)) + '_' + str(args.timesteps)
-        env = CartPoleEnv(gravity=args.params_p)
-        beta_network = BetaNetwork(state_dim=32, action_bound=100, learning_rate=args.learning_rate, tau=args.l2_regularization, seed=1234, action_dim = 1)
+        dataloader = DataLoader(dataset, batch_size=args.batch_size)
+        file_appender = str(args.params_p) + '_' + str(args.params_q) + str(int(10*args.real_policy)) + '_' + str(int(10*args.sim_policy)) + '_' + str(args.timesteps)
+        beta_network = BetaNetwork(state_dim=32, learning_rate=args.learning_rate, tau=args.l2_regularization, seed=1234, action_dim = 6)
         if args.use_cuda:
             beta_network = beta_network.to('cuda:0')
 
     if args.env == 'CartPole-v1':
         dataset = BetaEstimationDataset(filename_p=args.file_p, filename_q=args.file_q, action_space=1)
-    dataloader = DataLoader(dataset, batch_size=args.batch_size)
-    file_appender = str(args.params_p) + '_' + str(args.params_q) + str(int(10*args.real_policy)) + '_' + str(int(10*args.sim_policy)) + '_' + str(args.timesteps)
-        env = CartPoleEnv(gravity=args.params_p)
+        dataloader = DataLoader(dataset, batch_size=args.batch_size)
+        file_appender = str(args.params_p) + '_' + str(args.params_q) + str(int(10*args.real_policy)) + '_' + str(int(10*args.sim_policy)) + '_' + str(args.timesteps)
         beta_network = BetaNetwork(state_dim=5, learning_rate=args.learning_rate, tau=args.l2_regularization, seed=1234, action_dim = 1)
         if args.use_cuda:
             beta_network = beta_network.to('cuda:0')
@@ -42,6 +39,7 @@ def main(args):
             if args.use_cuda:
                 data_p = data_p.to('cuda:0')
                 data_q = data_q.to('cuda:0')
+            
             loss = beta_network.train_step(states_p=data_p, states_q=data_q)
             epoch_losses.append(loss.item())
             

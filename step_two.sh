@@ -1,0 +1,7 @@
+env='RoboschoolHalfCheetah-v1'
+echo $env
+mkdir log_$env
+python train_beta.py --log log_$env --file_p './offline_data/roboschoolhalfcheetah_1_0_150.pkl' --file_q './offline_data/roboschoolhalfcheetah_4_10_150.pkl' --sim_policy 0.1 --real_policy 0.4
+python train_beta.py  --log log_$env --file_p './offline_data/roboschoolhalfcheetah_3_0_150.pkl' --file_q './offline_data/roboschoolhalfcheetah_4_10_150.pkl' --sim_policy 0.3 --real_policy 0.4
+#python train_beta.py  --log log$env --file_p './offline_data/roboschoolhalfcheetah_1_100_150.pkl' --file_q './offline_data/roboschoolhalfcheetah_6_150_150.pkl' --sim_policy 0.1 --real_policy 0.6
+#python train_beta.py  --log log$env --file_p './offline_data/roboschoolhalfcheetah_3_100_150.pkl' --file_q './offline_data/roboschoolhalfcheetah_6_150_150.pkl' --sim_policy 0.3 --real_policy 0.6
